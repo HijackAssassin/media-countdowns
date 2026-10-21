@@ -1,0 +1,40 @@
+# Caddy in front of the relay, in the container.
+#
+# The hostname comes from RELAY_DOMAIN in your .env, so this file has nothing
+# personal in it and can be committed.
+#
+# Caddy listens on the ordinary 80 and 443 INSIDE its container. The NAS-side
+# ports are different (8080/8443) only because the NAS's own web interface
+# already has 80 and 443 — the router translates, and Caddy never needs to
+# know. See the note at the top of docker-compose.yml.
+#
+# There is no tls directive: Caddy obtains and renews a Let's Encrypt
+# certificate by itself, which is the main reason it is here rather than
+# uvicorn being exposed directly.
+
+{$RELAY_DOMAIN} {
+	# `mc-relay` is the CONTAINER name, and that is deliberate: it is the one
+	# name that resolves in every way this gets deployed. With plain `docker
+	# run` the container is named mc-relay and nothing answers to `relay`,
+	# which produced a 502 -- Caddy answering correctly over HTTPS, then
+	# failing to find anything behind it. Both compose files also set
+	# `container_name: mc-relay`, and Docker registers the container name on
+	# the network alongside the service name, so this resolves there too.
+	reverse_proxy mc-relay:8080
+
+	# The relay reads the LAST X-Forwarded-For entry to rate-limit /register by
+	# address (see app/rate_limit.py and the handoff's §8). Caddy appends the
+	# peer it actually saw, which is what makes that entry trustworthy —
+	# earlier entries are whatever the caller chose to send.
+	#
+	# Nothing to configure: reverse_proxy sets X-Forwarded-For, -Proto and
+	# -Host by default. It is written down because deleting it "to tidy up"
+	# would quietly turn the whole internet into one rate-limit bucket.
+
+	encode gzip
+
+	log {
+		output stdout
+		format console
+	}
+}

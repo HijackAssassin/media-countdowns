@@ -1,0 +1,35 @@
+# Dependencies for the NAS container. Identical to ../../requirements.txt with
+# ONE difference, and the difference is the whole point of this file existing.
+#
+# The root file asks for uvicorn[standard]. That extra pulls in uvloop,
+# httptools, watchfiles and websockets. On the EX2 Ultra -- ARMv7, 1.3 GHz,
+# 1 GB of RAM -- those are the packages most likely to have no prebuilt wheel
+# for the architecture, which means pip falls back to compiling them from
+# source with a C or Rust toolchain on a machine that has neither the speed nor
+# the memory to finish.
+#
+# None of them are needed here:
+#   uvloop, httptools  performance extras; this relay serves a handful of
+#                      requests a minute, not thousands a second
+#   watchfiles         only used by --reload, which is a development thing
+#   websockets         the admin dashboard streams with Server-Sent Events
+#                      (StreamingResponse + text/event-stream), not WebSockets
+#
+# So plain uvicorn, which is pure Python plus h11, and everything installs from
+# wheels.
+
+fastapi>=0.110
+uvicorn>=0.29
+httpx>=0.27
+python-dotenv>=1.0
+jinja2>=3.1
+python-multipart>=0.0.9
+itsdangerous>=2.1
+
+# If pip tries to BUILD pydantic-core (Rust) rather than download a wheel, the
+# build will almost certainly fail or run out of memory on this hardware.
+# The relay does not import pydantic anywhere -- it is only a FastAPI
+# dependency -- and FastAPI still supports the 1.x line, which is pure Python.
+# So if the image build dies on pydantic-core, uncomment the next line and
+# rebuild; nothing in the relay changes behaviour.
+# pydantic>=1.10.13,<2

@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/">
+        <file>appicon.ico</file>
+        <file>Longhorn.png</file>
+        <file>AboutPage2.PNG</file>
+        <file>AboutPage3.PNG</file>
+        <file>AboutPage4.PNG</file>
+        <file>TMDB.png</file>
+        <file>IGDB_dark.png</file>
+        <file>TVmaze_dark.png</file>
+    </qresource>
+</RCC>

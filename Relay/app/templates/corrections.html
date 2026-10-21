@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Media Countdowns Relay — Corrections</title>
+<style>
+  /* The banner block is identical on every page: same padding, same heading,
+     same nav, and the scrollbar gutter always reserved. Without that last
+     part the Console sat a little higher and further right than the others —
+     its log scrolls inside its own box, so the PAGE never got a scrollbar and
+     the whole layout shifted by its width. */
+  html { overflow-y: scroll; }
+  body { font-family: system-ui, sans-serif; background:#1a1a1a; color:#eee;
+         margin:0; padding:20px; font-size:18px; }
+  h1 { font-size:27px; line-height:1; margin:0 0 8px; }
+  .sub { color:#999; font-size:14px; margin-bottom:18px; }
+  .section { background:#242424; border-radius:12px; padding:26px; margin-bottom:26px; }
+  .section h2 { font-size:26px; margin:0 0 16px; color:#ddd; }
+  .note { color:#888; font-size:17px; margin-top:10px; line-height:1.6; }
+  /* Taken out of the flow rather than floated: the Console page is a flex
+     column so it can size its log to the window, and a flex container
+     ignores float on its children. Absolute keeps it in the same corner
+     on every page, 20px in, matching the body padding. */
+  .logout { position:absolute; top:20px; right:20px;
+            color:#999; font-size:14px; text-decoration:none; z-index:2; }
+  .nav { margin-bottom:16px; }
+  /* Every tab reserves the underline, so the active one is the same
+     height as the rest and the row never shifts as you move between
+     pages. */
+  .nav a { color:#999; font-size:15px; text-decoration:none; margin-right:20px;
+           padding-bottom:5px; border-bottom:3px solid transparent; }
+  .nav a.active { color:#fff; border-bottom-color:#0078d4; }
+  button { padding:12px 24px; border-radius:7px; border:none; background:#0078d4; color:#fff; font-weight:bold; cursor:pointer; font-size:18px; }
+  button:hover { background:#1a8de4; }
+  button.ghost { background:#2a2a2a; color:#aaa; font-weight:normal; }
+  button.ghost:hover { background:#383838; color:#fff; }
+
+  /* Two columns: the standing list on the left, the tools that feed it on
+     the right. Collapses to one column on a narrow window. */
+  .cols { display:grid; grid-template-columns: 1fr 1fr; gap:20px; align-items:start; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+
+  #show-search { width:100%; box-sizing:border-box; background:#1a1a1a; color:#eee;
+                 border:1px solid #3a3a3a; border-radius:8px; padding:16px; font-size:22px; }
+  /* Results float over the page so they never push the layout around. */
+  .search-wrap { position:relative; }
+  #show-results { position:absolute; left:0; right:0; top:100%; z-index:50;
+                  background:#1c1c1c; border:1px solid #3a3a3a; border-radius:6px;
+                  margin-top:4px; max-height:420px; overflow-y:auto; display:none;
+                  box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  #show-results.open { display:block; }
+  .hit { padding:14px 18px; cursor:pointer; border-bottom:1px solid #272727; }
+  .hit:last-child { border-bottom:none; }
+  .hit:hover { background:#2a2a2a; }
+  .hit .t { color:#eee; font-size:21px; font-weight:600; }
+  .hit .y { color:#8a8a8a; font-size:19px; margin-left:9px; }
+  .hit .k { color:#5c8fbf; font-size:15px; margin-left:9px; text-transform:uppercase; letter-spacing:.5px; }
+  .hit .p { color:#888; font-size:17px; margin-top:4px;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hit .have { color:#6c6; font-size:15px; margin-left:9px; }
+
+  .showrow { background:#202020; border:1px solid #2f2f2f; border-radius:6px;
+             margin-top:8px; overflow:hidden; }
+  .showrow.pending { border-color:#4a7ab0; }
+  .showrow .head { display:flex; align-items:baseline; gap:12px; padding:17px 20px; cursor:pointer; flex-wrap:wrap; }
+  .showrow .head:hover { background:#282828; }
+  .showrow .title { color:#eee; font-size:23px; font-weight:600; }
+  .showrow .year  { color:#8a8a8a; font-size:20px; }
+  .showrow .kind  { color:#5c8fbf; font-size:16px; text-transform:uppercase; letter-spacing:.5px; }
+  .showrow .state { color:#6c6; font-size:18px; margin-left:auto; white-space:nowrap; }
+  .showrow .badge { background:#3a2f16; color:#e0b050; border-radius:14px; padding:4px 13px; font-size:17px; white-space:nowrap; }
+  .showrow .editor { display:none; padding:20px; border-top:1px solid #2f2f2f; background:#191919; }
+  .showrow.open .editor { display:block; }
+  .showrow .editor label { color:#aaa; font-size:18px; display:block; margin-bottom:7px; }
+  .showrow .editor select,
+  .showrow .editor input[type=text] {
+      background:#141414; color:#eee; border:1px solid #3a3a3a; border-radius:6px;
+      padding:11px 13px; font-size:20px; }
+
+  /* One control per line. Air time, then shift, then the release window —
+     they answer different questions and reading them in a row meant working
+     out which label belonged to which box. */
+  .fields { display:block; }
+  .field-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .field-group { margin-bottom:20px; }
+  .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:22px; }
+  .actions button { padding:11px 22px; font-size:18px; }
+  .spinner { color:#888; font-size:17px; margin-top:12px; }
+  .default-note { color:#8a8a8a; font-size:17px; margin-top:10px; line-height:1.55; }
+  .hint { color:#7a7a7a; font-size:16px; margin-top:7px; }
+</style>
+</head>
+<body>
+<a class="logout" href="/admin/logout">Log out</a>
+<h1>Media Countdowns Relay</h1>
+<div class="nav">
+  <a href="/admin">Dashboard</a>
+  <a href="/admin/console">Console</a>
+  <a class="active" href="/admin/corrections">Corrections</a>
+  <a href="/admin/bugs">Bugs</a>
+  <a href="/admin/requests">Requests</a>
+</div>
+<div class="sub">Air times and release windows set here are used by every installation on its next refresh.</div>
+
+<div class="cols">
+  <div>
+    <div class="section">
+      <h2>Active corrections</h2>
+      <div class="note" style="margin-top:0;">
+        Everything currently being sent to installations. Click one to change it,
+        or remove it to hand the show back to whatever its source says.
+      </div>
+      <div id="active-list"><div class="note">Loading…</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section">
+      <h2>Find a show</h2>
+      <div class="note" style="margin-top:0; margin-bottom:10px;">
+        Same search the app uses — same filters, same ordering, same year,
+        director and cast — so what you pick here is what a user sees there.
+      </div>
+      <div class="search-wrap">
+        <input type="text" id="show-search" placeholder="Search a movie or show by name…" autocomplete="off">
+        <div id="show-results"></div>
+      </div>
+      <div id="search-state" class="spinner"></div>
+    </div>
+
+    <div class="section">
+      <h2>Air time alerts</h2>
+      <div class="note" style="margin-top:0;">
+        Shows an installation has flagged as having the wrong air time. Each
+        install can report a show once a day, so a count is people, not clicks.
+      </div>
+      <div id="alerts-list"><div class="note">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const resultsBox = document.getElementById('show-results');
+  const activeBox  = document.getElementById('active-list');
+  const alertsBox  = document.getElementById('alerts-list');
+  const stateEl    = document.getElementById('search-state');
+  const input      = document.getElementById('show-search');
+
+  // Rows currently rendered in Active, by show_key — so a search hit for a
+  // show that's already corrected reopens that row instead of adding a
+  // second one for the same show.
+  const activeRows = new Map();
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    // textContent everywhere: titles and cast names are third-party data
+    // and must never be able to inject markup into this page.
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+    // Short label for the summary line, so a correction reads
+    // "3:00 AM ET" rather than a bare time that means nothing on its own.
+    const tzShort = (z) => ({'America/Los_Angeles':'PT','America/Denver':'MT',
+                             'America/Chicago':'CT','America/New_York':'ET'}[z] || 'ET');
+  function fmt12(hhmm) {
+    if (!hhmm) return '';
+    const [H, M] = hhmm.split(':').map(Number);
+    const h = ((H % 12) === 0) ? 12 : (H % 12);
+    return h + ':' + String(M).padStart(2,'0') + (H >= 12 ? ' PM' : ' AM');
+  }
+
+  // isPending: added from search and not saved yet — gets a Cancel that
+  // simply removes the row, so picking the wrong show costs nothing.
+  function row(s, reportCount, isPending) {
+    const div = el('div', 'showrow' + (isPending ? ' pending' : ''));
+    const head = el('div', 'head');
+    head.appendChild(el('span', 'title', s.title || s.show_key));
+    if (s.year) head.appendChild(el('span', 'year', '(' + s.year + ')'));
+    if (s.media_type) head.appendChild(el('span', 'kind', s.media_type === 'tv' ? 'TV Show' : 'Movie'));
+    if (reportCount) head.appendChild(el('span', 'badge',
+        reportCount + ' report' + (reportCount > 1 ? 's' : '')));
+
+    const stateSpan = el('span', 'state');
+    const paintState = () => {
+      const MON = ['','January','February','March','April','May','June',
+                   'July','August','September','October','November','December'];
+      const bits = [];
+      if (s.air_time) bits.push(fmt12(s.air_time) + ' ' + tzShort(s.air_time_zone));
+      if (s.day_shift) bits.push((s.day_shift > 0 ? '+' : '') + s.day_shift + 'd');
+      if (s.window_year)
+        bits.push((s.window_month ? MON[s.window_month] + ' ' : '') + s.window_year);
+      stateSpan.textContent = bits.length ? bits.join('  ·  ')
+                                          : (isPending ? 'not saved yet' : '');
+    };
+    paintState();
+    head.appendChild(stateSpan);
+    div.appendChild(head);
+
+    const ed = el('div', 'editor');
+    const fields = el('div', 'fields');
+
+    const tWrap = el('div', 'field-group');
+    tWrap.appendChild(el('label', null, 'Air time'));
+    const tRow = el('div', 'field-row');
+    const hSel = el('select'), mSel = el('select'), apSel = el('select');
+    for (let h = 1; h <= 12; h++) { const o = el('option', null, String(h)); o.value = String(h); hSel.appendChild(o); }
+    for (let m = 0; m < 60; m++) { const o = el('option', null, String(m).padStart(2,'0')); o.value = String(m); mSel.appendChild(o); }
+    ['AM','PM'].forEach(v => { const o = el('option', null, v); o.value = v; apSel.appendChild(o); });
+
+    // The zone the time above is being entered in. Without it a correction is
+    // ambiguous the moment two users are in different zones: "3 AM" typed here
+    // was applied verbatim as 3 AM wherever the user happened to be, so a
+    // Pacific user got a time three hours out and nothing recorded what had
+    // been meant. Same four zones the app offers, same order.
+    const tzSel = el('select');
+    [['America/Los_Angeles','Pacific'], ['America/Denver','Mountain'],
+     ['America/Chicago','Central'],     ['America/New_York','Eastern']]
+      .forEach(([v, label]) => { const o = el('option', null, label); o.value = v; tzSel.appendChild(o); });
+    tzSel.value = s.air_time_zone || 'America/New_York';
+
+    const setPickers = (hhmm) => {
+      if (!hhmm) return;
+      const [H, M] = hhmm.split(':').map(Number);
+      hSel.value = String(((H % 12) === 0) ? 12 : (H % 12));
+      mSel.value = String(M);
+      apSel.value = H >= 12 ? 'PM' : 'AM';
+    };
+    setPickers(s.air_time || '');
+
+    // The pickers always hold SOME time — they open pre-filled with whatever
+    // the show currently uses, which is what makes judging whether it is wrong
+    // possible at all. So there has to be a way to say "I am not setting one",
+    // or Save would write an air-time correction every time, including when
+    // the only thing being set is a release window.
+    //
+    // That is this Reset button, sitting with the pickers it undoes. It
+    // replaced a "Correct the air time" checkbox, which asked the question
+    // backwards: the pickers already showed a time, so a box saying whether
+    // that time counted was a second thing to reason about on the way to
+    // doing the obvious one. Touching any picker means you ARE setting a
+    // time; Reset puts the show back on whatever its source publishes.
+    let timeSet = !!s.air_time;
+    // Filled in by loadDefault() below — what the show uses with no
+    // correction at all, so Reset can show it rather than leaving the last
+    // typed time sitting there looking like it still applies.
+    let sourceTime = '';
+
+    const resetTime = el('button', 'ghost', 'Reset');
+    const timeState = el('div', 'hint');
+    const paintTime = () => {
+      timeState.textContent = timeSet
+        ? '' : 'Not corrected — every installation uses whatever it works out itself.';
+    };
+    [hSel, mSel, apSel].forEach(x => x.addEventListener('change', () => {
+      timeSet = true; paintTime();
+    }));
+    resetTime.onclick = (ev) => {
+      ev.preventDefault();
+      timeSet = false;
+      if (sourceTime) setPickers(sourceTime);
+      paintTime();
+    };
+
+    tRow.appendChild(hSel); tRow.appendChild(el('span', null, ':'));
+    tRow.appendChild(mSel); tRow.appendChild(apSel);
+    // The zone sits with the time it qualifies, not off in a corner: the two
+    // are one value and reading either alone is how the ambiguity got here.
+    tRow.appendChild(tzSel);
+    tRow.appendChild(resetTime);
+
+    tWrap.appendChild(tRow);
+    tWrap.appendChild(timeState);
+    paintTime();
+    fields.appendChild(tWrap);
+
+    const dWrap = el('div', 'field-group');
+    dWrap.appendChild(el('label', null, 'Shift date'));
+    const dSel = el('select');
+    [['-1','− 1 day'],['0','no shift'],['1','+ 1 day']].forEach(([v,l]) => {
+      const o = el('option', null, l); o.value = v; dSel.appendChild(o);
+    });
+    dSel.value = String(s.day_shift || 0);
+    dWrap.appendChild(dSel); fields.appendChild(dWrap);
+
+    // Release window. For a show you already know comes back around the same
+    // time each year, before any source has published it. Month is optional:
+    // leaving it blank means the whole year, which is exactly how the app
+    // already renders TVmaze's own year-only announcements.
+    const wWrap = el('div', 'field-group');
+    wWrap.appendChild(el('label', null, 'Release window'));
+    const wRow = el('div', 'field-row');
+    const monthSel = el('select');
+    const MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+    const blank = el('option', null, 'Whole year'); blank.value = '';
+    monthSel.appendChild(blank);
+    MONTHS.forEach((name, i) => {
+      const o = el('option', null, name); o.value = String(i + 1); monthSel.appendChild(o);
+    });
+    monthSel.value = s.window_month ? String(s.window_month) : '';
+
+    const yearBox = el('input');
+    yearBox.type = 'text';
+    yearBox.inputMode = 'numeric';
+    yearBox.placeholder = 'Year';
+    yearBox.size = 6;
+    yearBox.maxLength = 4;
+    yearBox.style.width = '110px';
+    yearBox.value = s.window_year ? String(s.window_year) : '';
+
+    const clearWin = el('button', 'ghost', 'Clear');
+    clearWin.onclick = (ev) => { ev.preventDefault(); yearBox.value = ''; monthSel.value = ''; };
+
+    wRow.appendChild(monthSel); wRow.appendChild(yearBox); wRow.appendChild(clearWin);
+    wWrap.appendChild(wRow);
+    wWrap.appendChild(el('div', 'hint',
+      'Leave the year empty for no window. A window replaces whatever date the '
+      + 'source guessed, and the tile shows it as estimated.'));
+    fields.appendChild(wWrap);
+
+    const acts = el('div', 'actions');
+    const save = el('button', null, 'Save');
+    acts.appendChild(save);
+
+    let cancel = null, remove = null, dismiss = null;
+    if (isPending) { cancel = el('button', 'ghost', 'Cancel'); acts.appendChild(cancel); }
+    else if (s.air_time || s.day_shift || s.window_year) { remove = el('button', 'ghost', 'Remove correction'); acts.appendChild(remove); }
+    if (reportCount) { dismiss = el('button', 'ghost', 'Dismiss report'); acts.appendChild(dismiss); }
+    fields.appendChild(acts);
+
+    ed.appendChild(fields);
+    const defNote = el('div', 'default-note');
+    ed.appendChild(defNote);
+    const saved = el('div', 'note'); saved.style.display = 'none';
+    ed.appendChild(saved);
+    div.appendChild(ed);
+
+    // Pre-fill from whatever the show ALREADY uses, rather than opening
+    // blank: deciding whether a time is wrong is impossible without being
+    // shown what it currently is.
+    let defaultsLoaded = false;
+    async function loadDefault() {
+      if (defaultsLoaded) return;
+      defaultsLoaded = true;
+      if (s.media_type && s.media_type !== 'tv') {
+        defNote.textContent = 'Films have no published air time; the app uses its own default.';
+        return;
+      }
+      defNote.textContent = 'Checking what this show currently uses…';
+      const u = '/admin/shows/airtime?title=' + encodeURIComponent(s.title || '') +
+                '&year=' + (s.year || 0);
+      const j = await fetch(u).then(r => r.json()).catch(() => ({}));
+      if (j.air_time) {
+        defNote.textContent = 'Currently ' + fmt12(j.air_time) +
+          (j.source ? ' on ' + j.source : '') + ' — change it only if that is wrong.';
+        sourceTime = j.air_time;
+      } else {
+        defNote.textContent = 'No published air time' + (j.source ? ' for ' + j.source : '') +
+          ' — the app falls back to its own default (midnight Pacific / 3 AM Eastern).';
+        sourceTime = '03:00';
+      }
+      // Only fill the pickers in if nothing is being set here — this arrives
+      // whenever the network says so, and must never land on top of a time
+      // somebody has already chosen.
+      if (!s.air_time && !timeSet) { setPickers(sourceTime); paintTime(); }
+    }
+
+    head.onclick = () => {
+      div.classList.toggle('open');
+      if (div.classList.contains('open')) loadDefault();
+    };
+    // Exposed so opening a row programmatically (from a search pick) fills
+    // in the current default too, without faking a click.
+    div._loadDefault = loadDefault;
+
+    const readTime = () => {
+      if (!timeSet) return '';
+      let H = parseInt(hSel.value, 10) % 12;
+      if (apSel.value === 'PM') H += 12;
+      return String(H).padStart(2,'0') + ':' + String(parseInt(mSel.value,10)).padStart(2,'0');
+    };
+
+    save.onclick = async () => {
+      const body = new URLSearchParams({
+        show_key: s.show_key, source: s.source || '', title: s.title || '',
+        air_time: readTime(), day_shift: dSel.value,
+        air_time_zone: tzSel.value,
+        window_month: monthSel.value, window_year: yearBox.value.trim(),
+      });
+      const r = await fetch('/admin/shows/override', {method:'POST', body});
+      const j = await r.json().catch(()=>({}));
+      saved.style.display = 'block';
+      saved.textContent = j.ok
+        ? 'Saved — every installation picks this up on its next refresh.'
+        : (j.detail || 'Could not save.');
+      if (j.ok) { await refreshAll(); }
+    };
+
+    if (cancel) cancel.onclick = () => div.remove();
+
+    if (remove) remove.onclick = async () => {
+      await fetch('/admin/shows/override', {method:'POST', body:new URLSearchParams({
+        show_key: s.show_key, source: s.source || '', title: s.title || '',
+        air_time: '', day_shift: '0', window_month: '', window_year: '',
+        air_time_zone: 'America/New_York',
+      })});
+      await refreshAll();
+    };
+
+    if (dismiss) dismiss.onclick = async () => {
+      await fetch('/admin/reports/dismiss', {method:'POST',
+                   body:new URLSearchParams({show_key:s.show_key})});
+      await refreshAll();
+    };
+
+    return div;
+  }
+
+  async function loadActive(){
+    const j = await fetch('/admin/overrides').then(r=>r.json()).catch(()=>({overrides:[]}));
+    activeBox.innerHTML = '';
+    activeRows.clear();
+    if (!j.overrides || !j.overrides.length) {
+      activeBox.appendChild(el('div','note','No corrections yet — every show uses its source.'));
+      return;
+    }
+    j.overrides.forEach(o => {
+      const r = row(o, 0, false);
+      activeRows.set(o.show_key, r);
+      activeBox.appendChild(r);
+    });
+  }
+
+  async function loadAlerts(){
+    const j = await fetch('/admin/reports').then(r=>r.json()).catch(()=>({reports:[]}));
+    alertsBox.innerHTML = '';
+    if (!j.reports || !j.reports.length) {
+      alertsBox.appendChild(el('div','note','Nothing reported.'));
+      return;
+    }
+    j.reports.forEach(rep => alertsBox.appendChild(row(rep, rep.reports, false)));
+  }
+
+  const refreshAll = async () => { await Promise.all([loadActive(), loadAlerts()]); };
+
+  function hideResults(){ resultsBox.classList.remove('open'); }
+
+  function pick(s){
+    hideResults();
+    // Already corrected? Open the existing row rather than adding a second
+    // entry for the same show — two rows for one show is what let a stale
+    // correction quietly win over a newer one.
+    const existing = activeRows.get(s.show_key);
+    if (existing) {
+      existing.classList.add('open');
+      if (existing._loadDefault) existing._loadDefault();
+      existing.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+    const r = row(s, 0, true);
+    r.classList.add('open');
+    activeBox.insertBefore(r, activeBox.firstChild);
+    activeRows.set(s.show_key, r);
+    if (r._loadDefault) r._loadDefault();
+    r.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  let timer = null, seq = 0;
+  async function runSearch(q){
+    const mine = ++seq;
+    stateEl.textContent = 'Searching…';
+    const j = await fetch('/admin/shows/search?q=' + encodeURIComponent(q))
+                    .then(r=>r.json()).catch(()=>({results:[]}));
+    if (mine !== seq) return;                 // a newer search already went out
+    stateEl.textContent = '';
+    resultsBox.innerHTML = '';
+    if (!j.results.length) {
+      resultsBox.appendChild(el('div','note','No matches.'));
+      resultsBox.classList.add('open');
+      return;
+    }
+    j.results.forEach(s => {
+      const hit = el('div','hit');
+      const line = el('div');
+      line.appendChild(el('span','t', s.title));
+      if (s.year) line.appendChild(el('span','y','(' + s.year + ')'));
+      line.appendChild(el('span','k', s.media_type === 'tv' ? 'TV Show' : 'Movie'));
+      if (s.air_time || s.day_shift || s.window_year) line.appendChild(el('span','have','• already corrected'));
+      hit.appendChild(line);
+      const people = [s.director, s.cast].filter(Boolean).join('  •  ');
+      if (people) hit.appendChild(el('div','p', people));
+      hit.onclick = () => pick(s);
+      resultsBox.appendChild(hit);
+    });
+    resultsBox.classList.add('open');
+  }
+
+  input.addEventListener('input', e => {
+    clearTimeout(timer);
+    const q = e.target.value;
+    if (q.trim().length < 2) { hideResults(); stateEl.textContent=''; return; }
+    // Each keystroke would otherwise be a TMDB search plus credits lookups
+    // against the shared credential; wait for a pause first.
+    timer = setTimeout(() => runSearch(q), 400);
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { clearTimeout(timer); if (input.value.trim().length >= 2) runSearch(input.value); }
+    if (e.key === 'Escape') hideResults();
+  });
+  input.addEventListener('focus', () => {
+    if (resultsBox.children.length && input.value.trim().length >= 2)
+      resultsBox.classList.add('open');
+  });
+  // Clicking anywhere that isn't the box or the field closes the list.
+  document.addEventListener('click', e => {
+    if (!resultsBox.contains(e.target) && e.target !== input) hideResults();
+  });
+
+  refreshAll();
+})();
+</script>
+</body>
+</html>

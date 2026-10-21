@@ -1,0 +1,108 @@
+# =============================================================================
+#  Media Countdowns Relay on the NAS.
+#
+#  Three containers: the relay itself, Caddy in front of it for HTTPS, and a
+#  small DuckDNS updater so the hostname keeps pointing at your connection.
+#
+#  ---------------------------------------------------------------------------
+#  THE PORT NUMBERS, because this is the part that catches people out.
+#
+#  The NAS already uses ports 80 and 443 for its own admin web interface.
+#  Caddy cannot have them. So Caddy is published on 8080 and 8443 on the NAS,
+#  and the ROUTER translates:
+#
+#      internet :80   ->  NAS :8080   (Caddy's HTTP, for certificate renewal)
+#      internet :443  ->  NAS :8443   (Caddy's HTTPS, the actual traffic)
+#
+#  Inside its container Caddy still listens on the normal 80 and 443, which is
+#  what keeps certificate issuance working — Let's Encrypt connects to your
+#  public address on 80/443 and the router does the rest. Nothing about Caddy
+#  needs to know the NAS-side numbers are different.
+#
+#  The relay container publishes NOTHING. It is reachable only as `relay:8080`
+#  on the private network these three share, so the only way in from outside is
+#  through Caddy, over HTTPS.
+#  ---------------------------------------------------------------------------
+#
+#  Deploy in Portainer: Stacks -> Add stack -> point it at the copy of this
+#  repository on the NAS. See README.md in this folder for the whole procedure,
+#  including moving relay.db across, which is not optional.
+# =============================================================================
+
+services:
+
+  relay:
+    build:
+      # The repository root, because the image needs app/ — see the Dockerfile.
+      context: ../..
+      dockerfile: deploy/nas/Dockerfile
+    container_name: mc-relay
+    restart: unless-stopped
+    # Secrets come from the .env you copied over from the Windows machine.
+    # RELAY_SHARED_SECRET in particular MUST be the same value it has always
+    # been, or every installed copy of the app is locked out at once.
+    env_file:
+      - ../../.env
+    environment:
+      RELAY_DB_PATH: /data/relay.db
+    volumes:
+      - relay-data:/data
+    expose:
+      - "8080"
+    networks: [mcnet]
+
+  caddy:
+    # Official image, published for linux/arm/v7 among others, so it just works
+    # on this hardware. alpine variant to keep it small on a 1 GB box.
+    image: caddy:2-alpine
+    container_name: mc-caddy
+    restart: unless-stopped
+    depends_on:
+      - relay
+    ports:
+      - "8080:80"     # router sends internet :80  here
+      - "8443:443"    # router sends internet :443 here
+    environment:
+      # Read by the Caddyfile. Keeps your hostname out of the committed file.
+      RELAY_DOMAIN: ${RELAY_DOMAIN:?set RELAY_DOMAIN in .env, e.g. pattywatty.duckdns.org}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates live here. Losing this volume means re-issuing them, and
+      # Let's Encrypt rate-limits that — five failures an hour, fifty certs a
+      # week per domain. Back it up, or at least do not delete it casually.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [mcnet]
+
+  # Keeps the DuckDNS hostname pointing at your current address. Optional: if
+  # your router has its own DuckDNS/DDNS client, use that instead and delete
+  # this service — two updaters fighting is pointless, though harmless.
+  #
+  # Sending an empty ip= tells DuckDNS to use the address the request came
+  # from, which is exactly what you want and avoids needing to detect it.
+  duckdns:
+    image: alpine:3.20
+    container_name: mc-duckdns
+    restart: unless-stopped
+    environment:
+      DUCKDNS_DOMAIN: ${DUCKDNS_DOMAIN:?set DUCKDNS_DOMAIN in .env, e.g. pattywatty}
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN:?set DUCKDNS_TOKEN in .env, from duckdns.org}
+    # $$ escapes the $ so compose passes it through to the shell rather than
+    # substituting it here.
+    command: >
+      sh -c 'apk add --no-cache curl >/dev/null 2>&1;
+             while true; do
+               curl -sS "https://www.duckdns.org/update?domains=$$DUCKDNS_DOMAIN&token=$$DUCKDNS_TOKEN&ip=" || true;
+               echo " (duckdns updated at $$(date))";
+               sleep 300;
+             done'
+    networks: [mcnet]
+
+networks:
+  mcnet:
+    driver: bridge
+
+volumes:
+  relay-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Media Countdowns Relay — Admin Login</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#1a1a1a; color:#eee; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
+  form { background:#242424; padding:32px; border-radius:8px; width:280px; }
+  h1 { font-size:18px; margin:0 0 20px; }
+  input { width:100%; padding:10px; margin-bottom:12px; border-radius:4px; border:1px solid #444; background:#1a1a1a; color:#eee; box-sizing:border-box; }
+  button { width:100%; padding:10px; border-radius:4px; border:none; background:#0078d4; color:#fff; font-weight:bold; cursor:pointer; }
+  button:hover { background:#1a8de4; }
+  .error { color:#e66; font-size:13px; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<form method="post" action="/admin/login">
+  <h1>Media Countdowns Relay</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <input type="password" name="password" placeholder="Admin password" autofocus>
+  <button type="submit">Sign in</button>
+</form>
+</body>
+</html>

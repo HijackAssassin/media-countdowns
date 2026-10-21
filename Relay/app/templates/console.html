@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Media Countdowns Relay — Console</title>
+<style>
+  /* The banner block is identical on every page: same padding, same heading,
+     same nav, and the scrollbar gutter always reserved. Without that last
+     part this page sat a little higher and further right than the others —
+     the log scrolls inside its own box, so the PAGE never got a scrollbar and
+     the whole layout shifted by its width. The gutter stays reserved here
+     even though nothing overflows, which is the point: it keeps the tabs in
+     the same place as every other page. */
+  html { overflow-y: scroll; }
+
+  /* The log fills exactly what is left below the banner and scrolls inside
+     itself, so the page never scrolls. A fixed 75vh couldn't do that — 75vh
+     plus the banner is more than the window, so the page scrolled as well as
+     the log, and you had to scroll one to reach the other. */
+  html, body { height:100%; box-sizing:border-box; }
+  body { display:flex; flex-direction:column; overflow:hidden; }
+  body { font-family: system-ui, sans-serif; background:#1a1a1a; color:#eee;
+         margin:0; padding:20px; }
+  h1 { font-size:27px; line-height:1; margin:0 0 8px; }
+  .sub { color:#999; font-size:14px; margin-bottom:18px; }
+  /* Taken out of the flow rather than floated: the Console page is a flex
+     column so it can size its log to the window, and a flex container
+     ignores float on its children. Absolute keeps it in the same corner
+     on every page, 20px in, matching the body padding. */
+  .logout { position:absolute; top:20px; right:20px;
+            color:#999; font-size:14px; text-decoration:none; z-index:2; }
+  .nav { margin-bottom:16px; }
+  /* Every tab reserves the underline, so the active one is the same
+     height as the rest and the row never shifts as you move between
+     pages. */
+  .nav a { color:#999; font-size:15px; text-decoration:none; margin-right:20px;
+           padding-bottom:5px; border-bottom:3px solid transparent; }
+  .nav a.active { color:#fff; border-bottom-color:#0078d4; }
+  .status { display:inline-block; width:8px; height:8px; border-radius:50%; background:#666; margin-right:6px; vertical-align:middle; }
+  .status.live { background:#8ec07c; }
+  /* flex:1 takes the remaining height; min-height:0 is what actually lets
+     a flex child shrink below its content and scroll rather than pushing
+     the page taller. */
+  .log { background:#111; border-radius:8px; padding:16px;
+         font-family:"Consolas","Menlo",monospace; font-size:13px; line-height:1.7;
+         flex:1; min-height:0; overflow-y:auto; }
+  .line { white-space:pre-wrap; word-break:break-word; }
+  .time { color:#666; margin-right:10px; }
+  .sent { color:#8ec07c; }
+  .requested { color:#83a598; }
+  .failed { color:#fb4934; }
+  .empty { color:#666; font-style:italic; }
+</style>
+</head>
+<body>
+<a class="logout" href="/admin/logout">Log out</a>
+<h1>Media Countdowns Relay</h1>
+<div class="nav">
+  <a href="/admin">Dashboard</a>
+  <a class="active" href="/admin/console">Console</a>
+  <a href="/admin/corrections">Corrections</a>
+  <a href="/admin/bugs">Bugs</a>
+  <a href="/admin/requests">Requests</a>
+</div>
+<div class="sub"><span class="status" id="status-dot"></span><span id="status-text">Connecting…</span> · newest at top</div>
+
+<div class="log" id="log">
+  {% if entries %}
+    {% for e in entries %}
+      {% set cls = 'sent' if e.message.startswith('Sent') else ('failed' if e.message.startswith('Failed') else 'requested') %}
+      <div class="line"><span class="time">{{ e.time_str }}</span><span class="{{ cls }}">{{ e.message }}</span></div>
+    {% endfor %}
+  {% else %}
+    <div class="empty" id="empty-msg">Nothing logged yet — this fills in as app installations make requests through the relay.</div>
+  {% endif %}
+</div>
+
+<script>
+  const logEl = document.getElementById('log');
+  const statusDot = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+
+  function classify(message) {
+    if (message.startsWith('Sent')) return 'sent';
+    if (message.startsWith('Failed')) return 'failed';
+    return 'requested';
+  }
+
+  function prependLine(message) {
+    const empty = document.getElementById('empty-msg');
+    if (empty) empty.remove();
+    const now = new Date();
+    const timeStr = now.toTimeString().slice(0, 8);
+    const div = document.createElement('div');
+    div.className = 'line';
+    const cls = classify(message);
+    div.innerHTML = '<span class="time">' + timeStr + '</span><span class="' + cls + '">' +
+      message.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+    logEl.insertBefore(div, logEl.firstChild);
+  }
+
+  const source = new EventSource('/admin/console/stream');
+  source.onopen = () => {
+    statusDot.classList.add('live');
+    statusText.textContent = 'Live';
+  };
+  source.onerror = () => {
+    statusDot.classList.remove('live');
+    statusText.textContent = 'Reconnecting…';
+  };
+  source.onmessage = (event) => {
+    prependLine(event.data);
+  };
+</script>
+
+</body>
+</html>

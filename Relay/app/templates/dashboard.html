@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Media Countdowns Relay — Dashboard</title>
+<style>
+  /* The banner block is identical on every page: same padding, same heading,
+     same nav, and the scrollbar gutter always reserved. Without that last
+     part the Console sat a little higher and further right than the others —
+     its log scrolls inside its own box, so the PAGE never got a scrollbar and
+     the whole layout shifted by its width. */
+  html { overflow-y: scroll; }
+  body { font-family: system-ui, sans-serif; background:#1a1a1a; color:#eee;
+         margin:0; padding:20px; }
+  h1 { font-size:27px; line-height:1; margin:0 0 8px; }
+  .sub { color:#999; font-size:14px; margin-bottom:18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:28px; }
+  .card { background:#242424; border-radius:8px; padding:16px; position:relative; }
+  .card.resettable { cursor:context-menu; }
+  .card .num { font-size:28px; font-weight:bold; }
+  .card .label { color:#ddd; font-size:15px; margin-top:4px; font-weight:700; }
+  .card .desc { color:#666; font-size:11px; margin-top:4px; line-height:1.4; }
+  .section { background:#242424; border-radius:8px; padding:20px; margin-bottom:20px; }
+  .section h2 { font-size:14px; margin:0 0 12px; color:#ccc; }
+  textarea { width:100%; min-height:70px; background:#1a1a1a; color:#eee; border:1px solid #444; border-radius:4px; padding:10px; box-sizing:border-box; font-family:inherit; font-size:14px; }
+  .version-row { display:flex; align-items:center; gap:6px; font-size:20px; }
+  .version-row input[type=number] { width:64px; background:#1a1a1a; color:#eee; border:1px solid #444; border-radius:4px; padding:8px; font-family:inherit; font-size:16px; text-align:center; }
+  .version-row input[type=number]::-webkit-inner-spin-button { opacity: 1; }
+  .version-row span { color:#666; font-weight:bold; }
+  button { padding:9px 18px; border-radius:4px; border:none; background:#0078d4; color:#fff; font-weight:bold; cursor:pointer; margin-top:10px; }
+  button:hover { background:#1a8de4; }
+  button.danger { background:#8a2c2c; }
+  button.danger:hover { background:#a83a3a; }
+  /* Taken out of the flow rather than floated: the Console page is a flex
+     column so it can size its log to the window, and a flex container
+     ignores float on its children. Absolute keeps it in the same corner
+     on every page, 20px in, matching the body padding. */
+  .logout { position:absolute; top:20px; right:20px;
+            color:#999; font-size:14px; text-decoration:none; z-index:2; }
+  .saved { color:#6c6; font-size:12px; margin-top:8px; }
+  .note { color:#777; font-size:12px; margin-top:6px; }
+  .nav { margin-bottom:16px; }
+  /* Every tab reserves the underline, so the active one is the same
+     height as the rest and the row never shifts as you move between
+     pages. */
+  .nav a { color:#999; font-size:15px; text-decoration:none; margin-right:20px;
+           padding-bottom:5px; border-bottom:3px solid transparent; }
+  .nav a.active { color:#fff; border-bottom-color:#0078d4; }
+  .status { display:inline-block; width:8px; height:8px; border-radius:50%; background:#666; margin-right:6px; vertical-align:middle; }
+  .status.live { background:#8ec07c; }
+  .path-box { font-family:"Consolas","Menlo",monospace; font-size:12px; color:#aaa; background:#1a1a1a; padding:8px 10px; border-radius:4px; margin-top:6px; word-break:break-all; }
+  #ctx-menu { position:fixed; display:none; background:#2a2a2a; border:1px solid #444; border-radius:6px; padding:4px; z-index:1000; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+  #ctx-menu button { display:block; width:100%; text-align:left; background:none; margin:0; padding:8px 14px; color:#eee; font-weight:normal; border-radius:4px; }
+  #ctx-menu button:hover { background:#3a3a3a; }
+</style>
+</head>
+<body>
+<a class="logout" href="/admin/logout">Log out</a>
+<h1>Media Countdowns Relay</h1>
+<div class="nav">
+  <a class="active" href="/admin">Dashboard</a>
+  <a href="/admin/console">Console</a>
+  <a href="/admin/corrections">Corrections</a>
+  <a href="/admin/bugs">Bugs</a>
+  <a href="/admin/requests">Requests</a>
+</div>
+<div class="sub"><span class="status" id="status-dot"></span><span id="status-text">Connecting…</span> · numbers update live · right-click a resettable number to reset just that one</div>
+
+<div class="grid" id="stats-grid">
+  <div class="card" data-stat="total_installations_ever">
+    <div class="num">{{ stats.total_installations_ever }}</div>
+    <div class="label">Installations ever seen</div>
+    <div class="desc">Distinct app installs that have ever used this relay, each identified by its own random, anonymous ID.</div>
+  </div>
+  <div class="card" data-stat="active_installations_30d">
+    <div class="num">{{ stats.active_installations_30d }}</div>
+    <div class="label">Active in last 30 days</div>
+    <div class="desc">Of those, how many have made at least one request in the last 30 days.</div>
+  </div>
+  <div class="card resettable" data-stat="total_requests">
+    <div class="num">{{ stats.total_requests }}</div>
+    <div class="label">Total requests, lifetime</div>
+    <div class="desc">Every request received, ever — searches and detail fetches together, whether served fresh or from cache.</div>
+  </div>
+  <div class="card" data-stat="tiles_currently_cached">
+    <div class="num">{{ stats.tiles_currently_cached }}</div>
+    <div class="label">Cached API responses</div>
+    <div class="desc">Not the same as the number of tiles — one tile's countdown can need several of these (a search result, a details lookup, an episode list). Each one is a saved answer to a specific TMDB/IGDB request, kept until it expires.</div>
+  </div>
+  <div class="card resettable" data-stat="unique_fetches_ever">
+    <div class="num">{{ stats.unique_fetches_ever }}</div>
+    <div class="label">Unique upstream fetches, ever</div>
+    <div class="desc">How many times this relay actually had to call TMDB/IGDB itself, rather than answering from cache.</div>
+  </div>
+  <div class="card resettable" data-stat="tiles_refreshed_ever">
+    <div class="num">{{ stats.tiles_refreshed_ever }}</div>
+    <div class="label">Tiles refreshed (details/dates)</div>
+    <div class="desc">Requests checking a specific movie/show/game's details or dates — the startup refresh, mostly.</div>
+  </div>
+  <div class="card resettable" data-stat="tiles_fetched_ever">
+    <div class="num">{{ stats.tiles_fetched_ever }}</div>
+    <div class="label">Tiles fetched (searches)</div>
+    <div class="desc">Requests searching for a title by name.</div>
+  </div>
+  <div class="card" data-computed="hit_rate">
+    <div class="num">{{ hit_rate }}%</div>
+    <div class="label">Cache hit rate</div>
+    <div class="desc">Of all lookups, the percent answered instantly from cache instead of needing a fresh fetch.</div>
+  </div>
+  <div class="card" data-computed="db_size_mb">
+    <div class="num">{{ db_size_mb }} MB</div>
+    <div class="label">Database file size</div>
+    <div class="desc">Total disk space the relay's one database file is using — see the file location below.</div>
+  </div>
+  <div class="card" data-computed="cache_size_kb">
+    <div class="num">{{ cache_size_kb }} KB</div>
+    <div class="label">Cached response data</div>
+    <div class="desc">Just the actual cached TMDB/IGDB response bytes' share of the file above — the rest is stats, logs, and known titles.</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Reset</h2>
+  <div class="note" style="margin-top:0;">Resets the counters above and clears the cache — installation history ("Installations ever seen" and "Active in last 30 days") is never affected by this, no matter what. Right-click any individual counter's card to reset just that one instead (those don't touch the cache either). After a full reset, expect a burst of fresh upstream TMDB/IGDB calls as everything gets re-cached from scratch.</div>
+  <button class="danger" id="reset-all-btn">Reset All Numbers</button>
+</div>
+
+<div class="section">
+  <h2>Where this data lives</h2>
+  <div class="path-box">{{ db_path }}</div>
+  <div class="note">One SQLite file — the cache, these stats, the console log, and known titles all live in it together.</div>
+</div>
+
+<div class="section">
+  <h2>Message of the day</h2>
+  <form method="post" action="/admin/motd">
+    <textarea name="message" placeholder="Shown to every app installation next time it checks in — leave blank to clear it.">{{ motd }}</textarea>
+    <button type="submit">Save</button>
+  </form>
+  <div class="note">Shown to every installation with the Media Countdowns Server connection turned on — leave blank to show nothing.</div>
+  {% if saved == 'motd' %}<div class="saved">Saved.</div>{% endif %}
+</div>
+
+<div class="section">
+  <h2>App Version</h2>
+  <form method="post" action="/admin/version">
+    <div class="version-row">
+      Current App Version:
+      <input type="number" name="major" min="0" max="9999" value="{{ app_version[0] }}">
+      <span>.</span>
+      <input type="number" name="minor" min="0" max="9999" value="{{ app_version[1] }}">
+      <span>.</span>
+      <input type="number" name="patch" min="0" max="9999" value="{{ app_version[2] }}">
+    </div>
+    <button type="submit">Save</button>
+  </form>
+  <div class="note">Set this to whatever version you just released — installations running an older one will see a note that an update is available.</div>
+  {% if saved == 'version' %}<div class="saved">Saved.</div>{% endif %}
+</div>
+
+<div id="ctx-menu">
+  <button id="ctx-reset-btn">Reset this number</button>
+</div>
+
+<script>
+  // "Saved." belongs to the moment you pressed Save, not to the URL. The
+  // parameter is dropped from the address bar as soon as the page has used
+  // it, so reloading or coming back later doesn't re-announce a save that
+  // happened ten minutes ago.
+  if (location.search.includes('saved=')) {
+    history.replaceState(null, '', location.pathname);
+  }
+
+  const statusDot = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+
+  function updateCard(statName, value, formatter) {
+    const card = document.querySelector('[data-stat="' + statName + '"], [data-computed="' + statName + '"]');
+    if (card) card.querySelector('.num').textContent = formatter ? formatter(value) : value;
+  }
+
+  function applyStats(stats) {
+    updateCard('total_installations_ever', stats.total_installations_ever);
+    updateCard('active_installations_30d', stats.active_installations_30d);
+    updateCard('total_requests', stats.total_requests);
+    updateCard('tiles_currently_cached', stats.tiles_currently_cached);
+    updateCard('unique_fetches_ever', stats.unique_fetches_ever);
+    updateCard('tiles_refreshed_ever', stats.tiles_refreshed_ever);
+    updateCard('tiles_fetched_ever', stats.tiles_fetched_ever);
+
+    const totalLookups = stats.cache_hits + stats.cache_misses;
+    const hitRate = totalLookups ? Math.round((100 * stats.cache_hits / totalLookups) * 10) / 10 : 0.0;
+    updateCard('hit_rate', hitRate, v => v + '%');
+    updateCard('db_size_mb', Math.round((stats.db_file_bytes / (1024 * 1024)) * 100) / 100, v => v + ' MB');
+    updateCard('cache_size_kb', Math.round((stats.cache_bytes / 1024) * 10) / 10, v => v + ' KB');
+  }
+
+  const source = new EventSource('/admin/dashboard/stream');
+  source.onopen = () => { statusDot.classList.add('live'); statusText.textContent = 'Live'; };
+  source.onerror = () => { statusDot.classList.remove('live'); statusText.textContent = 'Reconnecting…'; };
+  source.onmessage = (event) => applyStats(JSON.parse(event.data));
+
+  // Right-click context menu for resetting one number at a time.
+  const ctxMenu = document.getElementById('ctx-menu');
+  const ctxResetBtn = document.getElementById('ctx-reset-btn');
+  let ctxTargetStat = null;
+
+  document.querySelectorAll('.card.resettable').forEach(card => {
+    card.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      ctxTargetStat = card.dataset.stat;
+      ctxMenu.style.left = e.pageX + 'px';
+      ctxMenu.style.top = e.pageY + 'px';
+      ctxMenu.style.display = 'block';
+    });
+  });
+  document.addEventListener('click', () => { ctxMenu.style.display = 'none'; });
+
+  ctxResetBtn.addEventListener('click', async () => {
+    if (!ctxTargetStat) return;
+    if (!confirm('Reset this number back to 0?')) return;
+    await fetch('/admin/reset-stat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'stat_name=' + encodeURIComponent(ctxTargetStat),
+    });
+  });
+
+  document.getElementById('reset-all-btn').addEventListener('click', async () => {
+    if (!confirm('Reset the counters and clear the cache? Installation history is never affected. Cannot be undone.')) return;
+    await fetch('/admin/reset-all-stats', { method: 'POST' });
+  });
+</script>
+
+</body>
+</html>

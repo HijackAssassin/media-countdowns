@@ -1,0 +1,100 @@
+# Code\ is this app's git repository and the ONLY folder that goes on GitHub ("push to github.bat").
+# Build\, Website\ and Resources\ are beside it, so they are never in it.
+
+# Never public: keys, passwords, shared secrets. The real values live in *.local.* files (or .env) that the build
+# uses when they are there; the repository has a blank *.example.* next to each.
+*.local.*
+.env
+.env.*
+!.env.example
+
+# Not ours to publish: third-party / Microsoft binaries and tools the build copies in (each app lists its own
+# below; README.md says where to get them), and the owner's own data, saves and test files.
+
+# Build output and caches
+build/
+dist/
+bin/
+obj/
+.venv/
+__pycache__/
+*.pyc
+*.log
+*.user
+.vs/
+.vscode/
+
+# ---------------------------------------------------------------------------
+# Media Countdowns (Manager\, Notifier\, Relay\)
+# ---------------------------------------------------------------------------
+
+# Never public: the relay's address and shared secret are baked into Patrick's builds from
+# Manager\src\relaysecret.local.h (blank Manager\src\relaysecret.example.h is committed).
+# Relay\.env holds the relay server's real TMDB/IGDB keys, shared secret, admin password and
+# DuckDNS token (Relay\.env.example shows its shape). Both are covered by the rules at the top.
+
+# The other editions: Editions\Microsoft Store\ is a separate private product with its own git
+# repository (and its own copy of the secret); Editions\Android\ has a TMDB key in its source.
+Editions/
+
+# Qt Creator / CMake / Ninja output and per-user files (build-app.bat builds in %TEMP%)
+build-*/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+*_autogen/
+.ninja_deps
+.ninja_log
+.qtc_clangd/
+.qtcreator/
+CMakeLists.txt.user*
+*.user.*
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+*.moc
+*.o
+*.obj
+*.a
+*.pdb
+*.ilk
+
+# Binaries: Qt's DLLs (windeployqt copies them into Build\), caddy.exe (the relay's HTTPS
+# front end, ~49 MB - from https://caddyserver.com/download), the installer.
+*.exe
+*.dll
+*.msix
+
+# Patrick's local Qt Creator helpers (windeployqt into Qt Creator's Debug folder, delete
+# .qtcreator\ and build\) - machine-specific, not part of the build.
+Manager/build.bat
+Manager/clean.bat
+Notifier/build.bat
+Notifier/clean.bat
+
+# The relay server's own data: the live database (cache, installations, the client-id signing
+# secret), a migration snapshot, the test database the tests make, Caddy's state, and the real
+# Caddyfile (Relay\Caddyfile.example is the shape).
+Relay/relay.db
+Relay/relay.db-*
+Relay/relay.db.*
+Relay/test_*.db
+Relay/caddy_data/
+Relay/caddy_config/
+Relay/Caddyfile
+.pytest_cache/
+.coverage
+venv/
+*.lnk
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*~
+*.swp
+.idea/
+
+# About-page screenshots that show studio artwork (not ours to publish) - kept on this PC only
+Manager/resources/AboutPage3.PNG
+Manager/resources/AboutPage4.PNG

@@ -1,0 +1,41 @@
+# What must never go into a Docker build context.
+#
+# The context is this whole folder, and it is uploaded to the Docker daemon on
+# every build. Without this file that means sending caddy.exe (~49 MB), the
+# live database, and — the one that actually matters — .env and Web.txt, both
+# of which contain real secrets. The Dockerfile only COPYs app/, so none of it
+# would end up in the image, but there is no reason to hand it to the daemon at
+# all, and on a 1 GB ARM NAS the wasted transfer is not free either.
+
+.env
+*.env
+!.env.example
+Web.txt
+
+relay.db
+relay.db-journal
+relay.db-wal
+relay.db-shm
+test_*.db
+
+caddy.exe
+caddy_data/
+caddy_config/
+
+.git/
+.gitignore
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+venv/
+.venv/
+
+# The nested Qt helper project and the public mirror — neither belongs in an
+# image of the Python relay.
+MediaCountdownsRelay/
+Media Countdowns Relay Server Public/
+
+*.bat
+*.lnk
+query.txt

@@ -1,0 +1,17 @@
+# Caddy in front of the relay, for the one job it is here to do: get a real
+# HTTPS certificate automatically, so the desktop app is not talking to your
+# server in the clear.
+#
+# Copy this to "Caddyfile" (no extension) and put your own hostname on the
+# first line. Caddy fetches and renews the certificate by itself; there is
+# nothing else to configure and no certificate file to manage.
+#
+# You only need this if you are exposing the relay to the internet. If the
+# relay is staying on your own machine or your own network, skip Caddy
+# entirely and point the app at http://localhost:8080, or at the machine's
+# local address like http://192.168.1.20:8080 — see README.md, "Do I need a
+# domain? Almost certainly not".
+
+your-name-here.duckdns.org {
+    reverse_proxy localhost:8080
+}

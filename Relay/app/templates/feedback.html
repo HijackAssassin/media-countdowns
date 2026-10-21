@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Media Countdowns Relay — {{ heading }}</title>
+<style>
+  /* Heading, subtitle and nav match every other page — the banner should
+     look the same wherever you are. The MESSAGES are larger, though: these
+     are paragraphs written by people, read a few at a time, not a wall of
+     live numbers you scan. They should read like mail, not like a log. */
+  /* The banner block is identical on every page: same padding, same heading,
+     same nav, and the scrollbar gutter always reserved. Without that last
+     part the Console sat a little higher and further right than the others —
+     its log scrolls inside its own box, so the PAGE never got a scrollbar and
+     the whole layout shifted by its width. */
+  html { overflow-y: scroll; }
+  body { font-family: system-ui, sans-serif; background:#1a1a1a; color:#eee;
+         margin:0; padding:20px; font-size:20px; }
+  h1 { font-size:27px; line-height:1; margin:0 0 8px; }
+  .sub { color:#999; font-size:14px; margin-bottom:18px; }
+  /* Taken out of the flow rather than floated: the Console page is a flex
+     column so it can size its log to the window, and a flex container
+     ignores float on its children. Absolute keeps it in the same corner
+     on every page, 20px in, matching the body padding. */
+  .logout { position:absolute; top:20px; right:20px;
+            color:#999; font-size:14px; text-decoration:none; z-index:2; }
+  .nav { margin-bottom:16px; }
+  /* Every tab reserves the underline, so the active one is the same
+     height as the rest and the row never shifts as you move between
+     pages. */
+  .nav a { color:#999; font-size:15px; text-decoration:none; margin-right:20px;
+           padding-bottom:5px; border-bottom:3px solid transparent; }
+  .nav a.active { color:#fff; border-bottom-color:#0078d4; }
+  .badge { display:inline-block; min-width:26px; padding:2px 9px; margin-left:9px;
+           border-radius:14px; background:#0078d4; color:#fff; font-size:18px;
+           font-weight:bold; text-align:center; vertical-align:2px; }
+  .badge.zero { display:none; }
+
+  /* To-do on the LEFT, the inbox on the RIGHT. The two together fill the
+     width that a single centred column was wasting. */
+  .cols { display:grid; grid-template-columns: 1fr 1fr; gap:26px; align-items:start; }
+  @media (max-width: 1250px) { .cols { grid-template-columns: 1fr; } }
+
+  .section { background:#242424; border-radius:12px; padding:26px; }
+  .section h2 { font-size:28px; margin:0 0 6px; color:#ddd; }
+  .section .cap { color:#8a8a8a; font-size:18px; margin:0 0 18px; }
+
+  .toolbar { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  .toolbar .spacer { flex:1; }
+  .count { color:#8a8a8a; font-size:18px; }
+  button { padding:11px 20px; border-radius:7px; border:none; background:#0078d4;
+           color:#fff; font-weight:bold; cursor:pointer; font-size:18px; }
+  button:hover { background:#1a8de4; }
+  button.ghost { background:#2a2a2a; color:#bbb; font-weight:normal; }
+  button.ghost:hover { background:#383838; color:#fff; }
+  button.danger:hover { background:#933; color:#fff; }
+
+  .msg { border:1px solid #333; border-radius:9px; margin-bottom:14px; overflow:hidden; }
+  .msg.unread { border-color:#0078d4; }
+  .msg.todo   { border-color:#c8922a; }
+  .msg-head { display:flex; align-items:center; gap:14px; padding:16px 18px;
+              cursor:pointer; background:#1f1f1f; }
+  .msg-head:hover { background:#282828; }
+  .dot { width:12px; height:12px; border-radius:50%; background:#0078d4; flex:none; }
+  .msg.read .dot { background:#3a3a3a; }
+  .msg.todo .dot { background:#c8922a; }
+  .preview { flex:1; color:#ddd; font-size:20px; overflow:hidden;
+             text-overflow:ellipsis; white-space:nowrap; }
+  .msg.unread .preview { font-weight:600; color:#fff; }
+  .when { color:#858585; font-size:16px; flex:none; }
+  .ver  { color:#5c8fbf; font-size:15px; text-transform:uppercase;
+          letter-spacing:.5px; flex:none; }
+
+  .msg-body { display:none; padding:20px; border-top:1px solid #2f2f2f; background:#1c1c1c; }
+  .msg.open .msg-body { display:block; }
+  /* Whitespace matters — people write lists and repro steps in these. */
+  .msg-body .text { white-space:pre-wrap; word-wrap:break-word; line-height:1.6;
+                    font-size:21px; color:#e8e8e8; }
+  .msg-body .meta { color:#808080; font-size:16px; margin-top:18px; }
+  .msg-actions { margin-top:18px; display:flex; gap:12px; flex-wrap:wrap; }
+
+  .empty { color:#808080; font-size:19px; padding:34px 0; text-align:center; }
+  .note { color:#808080; font-size:17px; margin-top:24px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<a class="logout" href="/admin/logout">Log out</a>
+<h1>Media Countdowns Relay</h1>
+
+<div class="nav">
+  <a href="/admin">Dashboard</a>
+  <a href="/admin/console">Console</a>
+  <a href="/admin/corrections">Corrections</a>
+  <a class="{% if kind == 'bug' %}active{% endif %}" href="/admin/bugs">Bugs<span class="badge {% if not unread.bug %}zero{% endif %}" id="badge-bug">{{ unread.bug }}</span></a>
+  <a class="{% if kind == 'request' %}active{% endif %}" href="/admin/requests">Requests<span class="badge {% if not unread.request %}zero{% endif %}" id="badge-request">{{ unread.request }}</span></a>
+</div>
+<div class="sub">{{ blurb }}</div>
+
+<div class="cols">
+  <div class="section">
+    <h2>To-do</h2>
+    <p class="cap">Flagged to act on. They stay here until you unflag or delete them.</p>
+    <div id="todo-list"></div>
+  </div>
+
+  <div class="section">
+    <div class="toolbar">
+      <span class="count" id="count">Loading…</span>
+      <span class="spacer"></span>
+      <button class="ghost" id="mark-all">Mark all read</button>
+    </div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<div class="note">
+  Messages are anonymous. The only identifier stored is the random per-install
+  id every request already carries, which is what lets a follow-up be recognised
+  as the same person — there is no name, address or reply channel attached to
+  any of this.
+</div>
+
+<script>
+const KIND = {{ kind|tojson }};
+const EMPTY = {{ empty|tojson }};
+
+function when(ts) {
+  const d = new Date(ts * 1000);
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1)    return 'just now';
+  if (mins < 60)   return mins + 'm ago';
+  if (mins < 1440) return Math.round(mins / 60) + 'h ago';
+  return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+}
+
+function firstLine(text) {
+  const t = text.trim().split('\n')[0];
+  return t.length > 90 ? t.slice(0, 90) + '…' : t;
+}
+
+function setBadges(unread) {
+  for (const k of ['bug', 'request']) {
+    const el = document.getElementById('badge-' + k);
+    if (!el) continue;
+    el.textContent = unread[k] || 0;
+    el.classList.toggle('zero', !unread[k]);
+  }
+}
+
+async function post(url, data) {
+  const r = await fetch(url, { method:'POST', body:new URLSearchParams(data) });
+  const j = await r.json().catch(() => ({}));
+  if (j.unread) setBadges(j.unread);
+  return j;
+}
+
+// One message card. `inTodo` only changes which column it was built for —
+// the card itself behaves identically in both.
+function buildCard(e, refresh) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + (e.todo ? 'todo ' : '') + (e.read ? 'read' : 'unread');
+
+  const head = document.createElement('div');
+  head.className = 'msg-head';
+  head.innerHTML = `<span class="dot"></span>
+                    <span class="preview"></span>
+                    ${e.app_version ? '<span class="ver"></span>' : ''}
+                    <span class="when"></span>`;
+  head.querySelector('.preview').textContent = firstLine(e.body);
+  head.querySelector('.when').textContent = when(e.created_at);
+  if (e.app_version) head.querySelector('.ver').textContent = e.app_version;
+
+  const body = document.createElement('div');
+  body.className = 'msg-body';
+  const text = document.createElement('div');
+  text.className = 'text';
+  text.textContent = e.body;              // textContent — never innerHTML
+  body.appendChild(text);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = new Date(e.created_at * 1000).toLocaleString()
+                   + ' · install ' + e.client_id.slice(0, 8)
+                   + (e.app_version ? ' · app ' + e.app_version : '');
+  body.appendChild(meta);
+
+  const actions = document.createElement('div');
+  actions.className = 'msg-actions';
+
+  const todoBtn = document.createElement('button');
+  todoBtn.className = e.todo ? 'ghost' : '';
+  todoBtn.textContent = e.todo ? 'Remove from to-do' : 'Add to to-do';
+  todoBtn.onclick = async (ev) => {
+    ev.stopPropagation();
+    await post('/admin/feedback/todo', { entry_id: e.id, todo: e.todo ? 0 : 1 });
+    refresh();
+  };
+
+  const readBtn = document.createElement('button');
+  readBtn.className = 'ghost';
+  readBtn.textContent = e.read ? 'Mark unread' : 'Mark read';
+  readBtn.onclick = async (ev) => {
+    ev.stopPropagation();
+    await post('/admin/feedback/read', { entry_id: e.id, read: e.read ? 0 : 1 });
+    refresh();
+  };
+
+  // No confirmation step: it is one message, it is already read by the time
+  // you would delete it, and a dialog on every removal is friction on the
+  // action you take most.
+  const del = document.createElement('button');
+  del.className = 'ghost danger';
+  del.textContent = 'Delete';
+  del.onclick = async (ev) => {
+    ev.stopPropagation();
+    await post('/admin/feedback/delete', { entry_id: e.id });
+    refresh();
+  };
+
+  actions.appendChild(todoBtn);
+  actions.appendChild(readBtn);
+  actions.appendChild(del);
+  body.appendChild(actions);
+
+  head.onclick = async () => {
+    const opening = !wrap.classList.contains('open');
+    wrap.classList.toggle('open', opening);
+    if (opening && !e.read) {
+      await post('/admin/feedback/read', { entry_id: e.id, read: 1 });
+      refresh();
+    }
+  };
+
+  wrap.appendChild(head);
+  wrap.appendChild(body);
+  return wrap;
+}
+
+function fill(container, entries, emptyText, refresh) {
+  container.innerHTML = '';
+  if (entries.length === 0) {
+    const d = document.createElement('div');
+    d.className = 'empty';
+    d.textContent = emptyText;
+    container.appendChild(d);
+    return;
+  }
+  for (const e of entries) container.appendChild(buildCard(e, refresh));
+}
+
+async function load() {
+  const r = await fetch('/admin/feedback/list?kind=' + encodeURIComponent(KIND));
+  const j = await r.json();
+  const entries = j.entries || [];
+  setBadges(j.unread || {});
+
+  const todo   = entries.filter(e => e.todo);
+  const inbox  = entries.filter(e => !e.todo);
+  const unread = inbox.filter(e => !e.read).length;
+
+  document.getElementById('count').textContent =
+    inbox.length === 0 ? '' :
+    `${inbox.length} message${inbox.length === 1 ? '' : 's'}` +
+    (unread ? ` · ${unread} unread` : '');
+
+  fill(document.getElementById('todo-list'), todo, 'Nothing flagged yet.', load);
+  fill(document.getElementById('list'), inbox, EMPTY, load);
+}
+
+document.getElementById('mark-all').onclick = async () => {
+  const j = await fetch('/admin/feedback/list?kind=' + encodeURIComponent(KIND))
+                    .then(r => r.json());
+  for (const e of (j.entries || [])) {
+    if (!e.read && !e.todo) await post('/admin/feedback/read', { entry_id: e.id, read: 1 });
+  }
+  load();
+};
+
+load();
+setInterval(load, 30000);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Binary files must never be line-ending converted. core.autocrlf is true on
+# this machine, and without this git treats these as text: it "normalises" them
+# on commit and converts them back on checkout, which shows a file as modified
+# when its bytes are identical and can genuinely corrupt one on a fresh clone.
+# The app icon was showing as permanently modified for exactly this reason.
+*.ico  binary
+*.png  binary
+*.PNG  binary
+*.jpg  binary
+*.rar  binary
+*.msix binary
+*.exe  binary

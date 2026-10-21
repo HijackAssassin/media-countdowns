@@ -1,0 +1,135 @@
+# This file is used to ignore files which are generated
+# ----------------------------------------------------------------------------
+
+*~
+*.autosave
+*.a
+*.core
+*.moc
+*.o
+*.obj
+*.orig
+*.rej
+*.so
+*.so.*
+*_pch.h.cpp
+*_resource.rc
+*.qm
+.#*
+*.*#
+core
+!core/
+tags
+.DS_Store
+.directory
+*.debug
+Makefile*
+*.prl
+*.app
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+Thumbs.db
+*.res
+*.rc
+/.qmake.cache
+/.qmake.stash
+**/.qmlls.ini
+
+# qtcreator generated files
+*.pro.user*
+*.qbs.user*
+CMakeLists.txt.user*
+
+# xemacs temporary files
+*.flc
+
+# Vim temporary files
+.*.swp
+
+# Visual Studio generated files
+*.ib_pdb_index
+*.idb
+*.ilk
+*.pdb
+*.sln
+*.suo
+*.vcproj
+*vcproj.*.*.user
+*.ncb
+*.sdf
+*.opensdf
+*.vcxproj
+*vcxproj.*
+
+# MinGW generated files
+*.Debug
+*.Release
+
+# Python byte code
+*.pyc
+
+# Binaries
+# --------
+*.dll
+*.exe
+
+# Directories with generated files
+.moc/
+.obj/
+.pch/
+.rcc/
+.uic/
+/build*/
+/.qtcreator/
+
+# ── Relay server (Python) ────────────────────────────────────────────────────
+# .env holds the real TMDB/IGDB credentials and the relay shared secret.
+# It must never be committed — .env.example documents the shape instead.
+.env
+*.env
+!.env.example
+
+# SQLite state: cache entries, art blobs, stats. Regenerated at runtime.
+relay.db
+relay.db-journal
+relay.db-wal
+relay.db-shm
+
+# Vendored Caddy binary (~49 MB) — download it rather than tracking it.
+caddy.exe
+caddy_data/
+caddy_config/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Test scratch databases
+test_*.db
+
+# Nested Qt helper project's build output (45 MB of compiled artifacts)
+MediaCountdownsRelay/build/
+MediaCountdownsRelay/.qtcreator/
+
+# Nested Qt helper project — has its own git repo
+MediaCountdownsRelay/
+
+# The public, keyless mirror of this source — its own git repo inside this
+# working tree, so it must be ignored here or `git add -A` records it as a
+# nested gitlink. Same arrangement as MediaCountdownsRelay/ above.
+Media Countdowns Relay Server Public/
+
+# Staging folder for the NAS migration. Contains a copy of .env and a snapshot
+# of the live database — both real secrets and real data, neither of which
+# belongs in a commit.
+NAS-TRANSFER/
+relay.db.nas-migration
+
+NAS-UPDATE/
