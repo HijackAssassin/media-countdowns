@@ -12,7 +12,7 @@ The app checks that page for updates each time it starts (pattywatty.duckdns.org
 
 | Folder | What it is |
 |---|---|
-| `Manager\` | The app itself (Qt 6 / C++). Its [README](Manager/README.md) explains the keys and the relay; [PRIVACY.md](Manager/PRIVACY.md) is the privacy policy. |
+| `Manager\` | The app itself (Qt 6 / C++). Its [README](Manager/README.md) explains the keys and the relay; [PRIVACY.md](PRIVACY.md) is the privacy policy. |
 | `Notifier\` | The tray program that sends the release notifications ([README](Notifier/README.md)). |
 | `Relay\` | The optional small server (Python, FastAPI) that holds the TMDB/IGDB keys so installed apps don't need their own ([README](Relay/README.md)). |
 | `Media Countdowns.iss` | The Inno Setup installer script (`package-app.bat` runs it). |

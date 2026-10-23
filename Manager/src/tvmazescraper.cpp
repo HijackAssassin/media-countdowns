@@ -18,7 +18,7 @@
 // Wikimedia-style UA policy applies to TVmaze too — identify the app and a
 // contact so a misbehaving build can be reached rather than blanket-blocked.
 static const char* kUserAgent =
-    "MediaCountdowns/5.0 (+https://github.com/HijackAssassin/MediaCountdowns)";
+    "MediaCountdowns/5.0 (+https://github.com/HijackAssassin/media-countdowns)";
 
 // Backdrops are capped at 720p. TVmaze serves episode stills at up to 4K,
 // which is far more than a tile ever displays and would bloat the image
