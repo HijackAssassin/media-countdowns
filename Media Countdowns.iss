@@ -1,7 +1,7 @@
-; Inno Setup script for Media Countdowns. Run by package-app.bat (here), which Website\"archive this build.bat" calls:
+; Inno Setup script for Media Countdowns. Run by package-app.bat (here), which Website\"2 archive this build.bat" calls:
 ;   ISCC /DAppVersion=x.y.z /DSourceDir=<project>\Website\MediaCountdowns /DOutDir=<project>\Website "Media Countdowns.iss"
 ; Packs everything in SourceDir (the app + Notifier\, a copy of Build\) into
-; OutDir\Media-Countdowns-V<version>-Setup.exe - the version in that name is what "push to website.bat"
+; OutDir\Media-Countdowns-V<version>-Setup.exe - the version in that name is what "3 push to website.bat"
 ; (and the website) read it from, so the name must not change.
 ; AppName (and so the uninstall entry), the install folder and the shortcuts are unchanged from
 ; V5.4.28, so a new version installs over an old one.
